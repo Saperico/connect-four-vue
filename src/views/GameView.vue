@@ -21,9 +21,23 @@
       </main>
 
       <aside class="player-info player-two">
-        <h2>{{ players.two.name }}</h2>
-        <p>Color: <span class="disc player2-indicator"></span> Yellow</p>
-        <p>Score: {{ matchHistory.playerTwoWins }} wins</p>
+        <template v-if="game.status === 'Waiting'">
+          <div class="waiting-content">
+            <h2>Waiting for Opponent</h2>
+            <div class="opponent-info waiting">
+              <div class="waiting-avatar"></div>
+              <p>Waiting for opponent...</p>
+            </div>
+            <button @click="copyInviteLink" class="btn-invite">
+              <span class="icon">📋</span> Copy Invite Link
+            </button>
+          </div>
+        </template>
+        <template v-else>
+          <h2>{{ players.two.name }}</h2>
+          <p>Color: <span class="disc player2-indicator"></span> Yellow</p>
+          <p>Score: {{ matchHistory.playerTwoWins }} wins</p>
+        </template>
       </aside>
     </div>
 
@@ -33,7 +47,6 @@
       <p>Draws: {{ matchHistory.draws }}</p>
       <button @click="viewFullMatchHistory">View Full History</button>
     </section>
-
   </div>
 </template>
 
@@ -47,24 +60,31 @@ export default {
   },
   data() {
     return {
-      gameId: null, // Will be set from route params
+      gameId: null,
       game: {
-        name: 'Epic Showdown',
-        status: 'In Progress', // e.g., 'Waiting', 'In Progress', 'Finished'
-        winner: null, // e.g., 'Player 1', 'Player 2', 'Draw'
-        currentPlayerId: 'player1', // ID of player whose turn it is
+        name: 'New Game',
+        status: 'Waiting', // 'Waiting', 'In Progress', 'Finished'
+        winner: null,
+        currentPlayerId: 'player1',
       },
       players: {
-        one: { id: 'player1', name: 'CurrentUser' },
-        two: { id: 'player2', name: 'OpponentBot' },
+        one: { 
+          id: 'player1', 
+          name: 'Player ' + Math.floor(Math.random() * 1000),
+          picture: 'https://via.placeholder.com/50'
+        },
+        two: { 
+          id: 'player2', 
+          name: 'Waiting for opponent...',
+          picture: null
+        },
       },
-      // 0: empty, 1: player1 (red), 2: player2 (yellow)
       currentBoardState: Array(6).fill(null).map(() => Array(7).fill(0)),
       matchHistory: {
-        playerOneWins: 5,
-        playerTwoWins: 3,
-        draws: 1,
-        totalMatches: 9,
+        playerOneWins: 0,
+        playerTwoWins: 0,
+        draws: 0,
+        totalMatches: 0,
       },
     };
   },
@@ -80,26 +100,17 @@ export default {
     }
   },
   methods: {
-    fetchGameDetails(id) {
-      console.log('Fetching game details for game ID:', id);
-      // Simulate API call to get game data based on ID
-      // For now, we use mock data initialized in data()
-      this.game.name = `Game #${id.slice(0,5)}`;
-      // Example: pre-fill some moves for a demo
-      const board = Array(6).fill(null).map(() => Array(7).fill(0));
-      board[5][0] = 1; // Player 1
-      board[5][1] = 2; // Player 2
-      board[4][0] = 1;
-      this.currentBoardState = board;
+    copyInviteLink() {
+      const inviteLink = `${window.location.origin}/game/${this.gameId}`;
+      navigator.clipboard.writeText(inviteLink)
+        .then(() => alert('Invite link copied to clipboard!'))
+        .catch(err => console.error('Failed to copy invite link:', err));
     },
-    handlePlayerMove({ row, col }) {
-      console.log(`Move attempted by current player at ${row}, ${col}`);
+    handlePlayerMove({ col }) {
       if (this.game.status !== 'In Progress') {
-        alert('Game is not in progress!');
         return;
       }
 
-      // Basic move logic: find the lowest empty cell in the clicked column
       let placedRow = -1;
       for (let r = this.currentBoardState.length - 1; r >= 0; r--) {
         if (this.currentBoardState[r][col] === 0) {
@@ -113,39 +124,22 @@ export default {
         newBoardState[placedRow][col] = this.game.currentPlayerId === this.players.one.id ? 1 : 2;
         this.currentBoardState = newBoardState;
         
-        // Switch turns (simple)
         this.game.currentPlayerId = this.game.currentPlayerId === this.players.one.id ? this.players.two.id : this.players.one.id;
         
-        // TODO: Check for win/draw condition
         this.checkForWin(placedRow, col);
-
-      } else {
-        alert('Column is full!');
       }
     },
     checkForWin(lastRow, lastCol) {
       // Placeholder for win detection logic
-      console.log("Checking for win after move at", lastRow, lastCol)
-      // If win, update game.status and game.winner
-      // Example:
-      // if (someoneWon) {
-      //  this.game.status = 'Finished';
-      //  this.game.winner = this.game.currentPlayerId === this.players.one.id ? this.players.two.name : this.players.one.name; // Winner is the one who just moved
-      // }
+      console.log("Checking for win after move at", lastRow, lastCol);
     },
     viewFullMatchHistory() {
       alert('Viewing full match history - to be implemented.');
     }
   },
   created() {
-    this.gameId = this.$route.params.gameId || 'defaultGame';
-    this.fetchGameDetails(this.gameId);
-  },
-  watch: {
-    '$route.params.gameId'(newId) {
-      this.gameId = newId;
-      this.fetchGameDetails(newId);
-    }
+    this.gameId = this.$route.params.gameId || 'game' + Date.now();
+    this.game.name = `Game #${this.gameId.slice(0,5)}`;
   }
 };
 </script>
@@ -160,18 +154,21 @@ export default {
   text-align: center;
   margin-bottom: 1rem;
 }
+
 .game-header h1 {
   margin-bottom: 0.25rem;
 }
-.game-status .status-inprogress { color: #007bff; font-weight:bold; }
-.game-status .status-finished { color: #28a745; font-weight:bold; }
-.game-status .status-waiting { color: #ffc107; font-weight:bold; }
+
+.game-status .status-waiting { color: #ffc107; font-weight: bold; }
+.game-status .status-inprogress { color: #007bff; font-weight: bold; }
+.game-status .status-finished { color: #28a745; font-weight: bold; }
 
 .game-layout {
   display: flex;
   justify-content: space-around;
   align-items: flex-start;
   gap: 1rem;
+  margin-top: 2rem;
 }
 
 .player-info {
@@ -182,6 +179,37 @@ export default {
   background-color: #f9f9f9;
   text-align: center;
 }
+
+.waiting-content {
+  padding: 1rem;
+}
+
+.waiting-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #e9ecef;
+  margin: 1rem auto;
+}
+
+.btn-invite {
+  padding: 0.75rem 1.5rem;
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.btn-invite:hover {
+  background-color: #5a6268;
+}
+
 .player-info h2 {
   font-size: 1.2rem;
   margin-top: 0;
@@ -196,6 +224,7 @@ export default {
   vertical-align: middle;
   margin-right: 5px;
 }
+
 .player1-indicator { background-color: red; }
 .player2-indicator { background-color: yellow; }
 
@@ -220,9 +249,11 @@ export default {
   background-color: #f9f9f9;
   text-align: center;
 }
+
 .match-history h3 {
   margin-top: 0;
 }
+
 .match-history button {
   padding: 0.5rem 1rem;
   background-color: #6c757d;
@@ -232,6 +263,7 @@ export default {
   cursor: pointer;
   margin-top: 0.5rem;
 }
+
 .match-history button:hover {
   background-color: #5a6268;
 }

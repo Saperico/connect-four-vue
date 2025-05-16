@@ -24,14 +24,8 @@
 </template>
 
 <script>
-// @ is an alias to /src
-import HelloWorld from '@/components/HelloWorld.vue'
-
 export default {
   name: 'HomeView',
-  components: {
-    HelloWorld
-  },
   data() {
     return {
       // We'll get the username from localStorage or a global store later
@@ -41,9 +35,8 @@ export default {
   },
   methods: {
     startNewGame() {
-      console.log('Start New Game clicked');
-      // Later, this will navigate to a game setup or directly to a new game room
-      alert('Starting a new game... (functionality to be implemented)');
+      const gameId = 'game' + Date.now();
+      this.$router.push(`/game/${gameId}`);
     },
     viewLeaderboard() {
       console.log('View Leaderboard clicked');
